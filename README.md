@@ -171,4 +171,4 @@ The system includes comprehensive error handling for:
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License - see LICENSE file for details# comp-controller
