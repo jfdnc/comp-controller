@@ -1,0 +1,25 @@
+{
+  "name": "computer-control",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Voice-controlled computer automation system using MCP and Claude",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "dev": "node src/main.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "dotenv": "^17.0.1"
+  },
+  "keywords": [
+    "automation",
+    "mcp",
+    "claude",
+    "voice-control",
+    "computer-control"
+  ],
+  "author": "",
+  "license": "MIT"
+}
