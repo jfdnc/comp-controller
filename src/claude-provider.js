@@ -20,23 +20,88 @@ FIRST: Carefully analyze the screenshot to understand the current state:
 - What UI elements are visible and where are they located?
 - Is the required application already open and ready to use?
 
-Your job is to determine what actions need to be taken to fulfill the user's intent. You have access to these tools via MCP:
+Your job is to determine what actions need to be taken to fulfill the user's intent. You have access to these comprehensive tools via MCP:
 
-- takeScreenshot(): Take a new screenshot
-- clickAt(x, y): Click at specific coordinates  
-- typeText(text): Type text at current cursor position
-- pressKey(key): Press keys like 'return', 'tab', 'escape', etc.
-- getWindowList(): Get list of open windows
-- openApplication(appName): Open an application by name
-- getMousePosition(): Get current mouse cursor position
+**Screen Operations:**
+- takeScreenshot(): Take a screenshot of the entire screen
+- captureRegion(x, y, width, height): Capture a specific region
+- getScreenSize(): Get screen dimensions
+- getColorAt(x, y): Get color at specific coordinates
+
+**Mouse Operations:**
+- clickAt(x, y): Left-click at coordinates
+- rightClickAt(x, y): Right-click at coordinates
+- doubleClickAt(x, y): Double-click at coordinates
+- dragMouse(fromX, fromY, toX, toY): Drag from one point to another
+- scroll(direction, amount): Scroll in direction (up/down/left/right)
+- moveMouse(x, y): Move mouse without clicking
+- getMousePosition(): Get current mouse position
+
+**Keyboard Operations:**
+- typeText(text): Type text at cursor position
+- pressKey(key): Press single key or combination (e.g., 'cmd+c', 'ctrl+v')
+- pressKeys(keys): Press multiple keys simultaneously
+
+**Hotkey Navigation (PREFERRED over coordinates):**
+- focusAddressBar(): Focus URL bar (Cmd+L)
+- switchTab(direction): Switch tabs (next/previous)
+- navigateBack(): Browser back (Cmd+Left)
+- navigateForward(): Browser forward (Cmd+Right)
+- refreshPage(): Reload page (Cmd+R)
+- newTab(): Open new tab (Cmd+T)
+- closeTab(): Close tab (Cmd+W)
+- selectAll(): Select all (Cmd+A)
+- copy(): Copy (Cmd+C)
+- paste(): Paste (Cmd+V)
+- undo(): Undo (Cmd+Z)
+- redo(): Redo (Cmd+Shift+Z)
+- find(): Find dialog (Cmd+F)
+- switchApplication(type): Switch apps/windows (Cmd+Tab/Cmd+\`)
+- executeHotkey(keys, description): Custom hotkey combinations
+
+**Window Management:**
+- getWindowList(): List all open windows
+- getActiveWindow(): Get info about active window
+- focusWindow(title): Focus window by title
+- moveWindow(title, x, y): Move window to coordinates
+- resizeWindow(title, width, height): Resize window
+
+**Clipboard Operations:**
+- setClipboard(text): Copy text to clipboard
+- getClipboard(): Get clipboard content
+
+**Application Control:**
+- openApplication(appName): Open application by name
+
+**Debug/Analysis:**
+- analyzeCoordinateSystem(): Get comprehensive coordinate system analysis
+- debugCoordinates(x, y): Test specific coordinate mapping
+
+**Utility:**
 - wait(ms): Wait for specified milliseconds
+- analyzeCoordinateSystem(): Analyze coordinate scaling and mapping
+- debugCoordinates(x, y): Test coordinate mapping at specific point
 
-IMPORTANT GUIDELINES:
+PREFERRED INTERACTION METHODS:
+1. **HOTKEYS FIRST**: Use hotkey tools whenever possible instead of coordinates
+   - focusAddressBar() instead of clicking on URL bar
+   - switchTab() instead of clicking tab buttons
+   - newTab() instead of clicking + button
+   - copy/paste instead of right-click menus
+2. **Keyboard navigation**: Use Tab, Shift+Tab, arrow keys for element selection
+3. **Mouse coordinates**: Only use as last resort when hotkeys can't accomplish the task
+
+COORDINATE GUIDELINES (when hotkeys aren't sufficient):
+1. **USE SCREENSHOT COORDINATES**: All coordinates (x, y) should be based EXACTLY on what you see in the screenshot
+2. **Pixel-perfect accuracy**: Look carefully at the screenshot and use the exact pixel coordinates of UI elements
+3. **No scaling needed**: The system will automatically handle any coordinate scaling - just use what you see
+4. **Verify positions**: Double-check coordinates by looking at the screenshot dimensions and element positions
+
+APPLICATION GUIDELINES:
 1. For web browsing tasks: If Chrome is not visible or active in the screenshot, ALWAYS start by opening "Google Chrome"
 2. Always wait at least 3 seconds after opening an application before interacting with it
-3. When clicking on interface elements, be very precise with coordinates based on the screenshot
-4. If an application is open but not active/focused, click on it first to bring it to focus
-5. Always verify the current state before taking actions
+3. Use switchApplication() to focus apps instead of clicking on them
+4. Always verify the current state before taking actions
 
 Think step by step about what needs to happen to accomplish the user's goal. Return your response as a JSON array of actions, where each action has:
 - tool: the tool name
@@ -55,17 +120,28 @@ For example:
 RESPONSE FORMAT:
 First, briefly describe what you see in the screenshot in a comment, then provide the JSON array of actions.
 
-Example format:
-// I can see the desktop with no Chrome window visible
+Example format using PREFERRED hotkey methods:
+// I can see Chrome is open but need to navigate to a website
 [
-  {"tool": "openApplication", "args": {"appName": "Google Chrome"}, "description": "Open Chrome browser"},
-  {"tool": "wait", "args": {"ms": 3000}, "description": "Wait for Chrome to load and activate"},
-  {"tool": "clickAt", "args": {"x": 300, "y": 100}, "description": "Click on address bar"},
-  {"tool": "typeText", "args": {"text": "google.com"}, "description": "Type google.com"},
+  {"tool": "focusAddressBar", "args": {}, "description": "Focus the address bar using Cmd+L"},
+  {"tool": "typeText", "args": {"text": "google.com"}, "description": "Type the URL"},
   {"tool": "pressKey", "args": {"key": "return"}, "description": "Press Enter to navigate"}
 ]
 
-IMPORTANT: For clickAt actions, you MUST provide both x and y coordinates as numbers. Look carefully at the screenshot to identify the exact pixel coordinates of UI elements.`;
+Example with application switching:
+// I can see multiple applications, need to focus Chrome
+[
+  {"tool": "switchApplication", "args": {"type": "application"}, "description": "Switch to Chrome using Cmd+Tab"},
+  {"tool": "newTab", "args": {}, "description": "Open new tab using Cmd+T"},
+  {"tool": "focusAddressBar", "args": {}, "description": "Focus address bar using Cmd+L"}
+]
+
+CRITICAL: For all coordinate-based actions (clickAt, rightClickAt, doubleClickAt, dragMouse, moveMouse, getColorAt):
+- Use coordinates EXACTLY as they appear in the screenshot
+- Count pixels from the top-left corner (0,0)
+- Be precise - look carefully at UI element positions
+- The system handles all coordinate scaling automatically
+- Your coordinates should match what you visually see in the image`;
 
       const payload = {
         model: this.model,
