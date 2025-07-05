@@ -1,7 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { mouse, keyboard, screen, straightTo, centerOf, getWindows, getActiveWindow, Region, clipboard, Button, Key, sleep } from "@nut-tree-fork/nut-js";
+import { mouse, keyboard, screen, straightTo, centerOf, getWindows, getActiveWindow, Region, clipboard, Button, Key } from "@nut-tree-fork/nut-js";
 
 class ComputerControlMCPServer {
   constructor() {
@@ -26,6 +26,17 @@ class ComputerControlMCPServer {
     };
 
     this.setupToolHandlers();
+    this.setupNutConfig();
+  }
+
+  setupNutConfig() {
+    // Configure nut-js timing and behavior
+    mouse.config.autoDelayMs = 100; // Small delay between mouse actions
+    mouse.config.mouseSpeed = 1000; // Pixels per second
+    keyboard.config.autoDelayMs = 50; // Small delay between key presses
+    screen.config.autoHighlight = false; // Don't highlight found elements
+    screen.config.highlightDurationMs = 500;
+    screen.config.confidence = 0.8; // Match confidence for image/text recognition
   }
 
   setupToolHandlers() {
@@ -291,17 +302,6 @@ class ComputerControlMCPServer {
           },
           // Utility
           {
-            name: "wait",
-            description: "Wait for a specified amount of time",
-            inputSchema: {
-              type: "object",
-              properties: {
-                ms: { type: "number", description: "Milliseconds to wait" },
-              },
-              required: ["ms"],
-            },
-          },
-          {
             name: "debugCoordinates",
             description: "Debug coordinate system and display scaling",
             inputSchema: {
@@ -511,6 +511,29 @@ class ComputerControlMCPServer {
               required: ["keys"],
             },
           },
+          {
+            name: "diagnosticKeyTest",
+            description: "Test individual key mappings and combinations for debugging",
+            inputSchema: {
+              type: "object",
+              properties: {
+                testKey: {
+                  type: "string",
+                  description: "Key to test (e.g., 'l', 'cmd', 'return')"
+                }
+              },
+              required: ["testKey"],
+            },
+          },
+          {
+            name: "checkSystemState",
+            description: "Get comprehensive system state for debugging",
+            inputSchema: {
+              type: "object",
+              properties: {},
+              required: [],
+            },
+          },
         ],
       };
     });
@@ -570,9 +593,7 @@ class ComputerControlMCPServer {
           // Application Control
           case "openApplication":
             return await this.openApplication(args.appName);
-          // Utility
-          case "wait":
-            return await this.wait(args.ms);
+          // Utility functions
           case "debugCoordinates":
             return await this.debugCoordinates(args.x, args.y);
           case "analyzeCoordinateSystem":
@@ -612,6 +633,10 @@ class ComputerControlMCPServer {
             return await this.switchApplication(args.type);
           case "executeHotkey":
             return await this.executeHotkey(args.keys, args.description);
+          case "diagnosticKeyTest":
+            return await this.diagnosticKeyTest(args.testKey);
+          case "checkSystemState":
+            return await this.checkSystemState();
           default:
             throw new Error(`Unknown tool: ${name}`);
         }
@@ -637,50 +662,50 @@ class ComputerControlMCPServer {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
       const tempDir = os.tmpdir();
       const rawFile = path.join(tempDir, `screenshot-raw-${Date.now()}.png`);
       const finalFile = path.join(tempDir, `screenshot-final-${Date.now()}.png`);
-      
+
       // Get coordinate system info
       const coords = await this.ensureCoordinateSystem();
-      
+
       // Take raw screenshot
       await execAsync(`screencapture -x -t png "${rawFile}"`);
-      
+
       let screenshotFile = rawFile;
-      
+
       // Add coordinate metadata overlay if requested
       if (addMetadata) {
         try {
           const width = coords.screenshotWidth;
           const height = coords.screenshotHeight;
-          
+
           // Create metadata overlay
           let convertCmd = `convert "${rawFile}" `;
-          
+
           // Add subtle coordinate markers at corners and center
           const markers = [
             { x: 20, y: 30, label: '(0,0)' },
             { x: width - 80, y: 30, label: `(${width},0)` },
             { x: 20, y: height - 10, label: `(0,${height})` },
             { x: width - 120, y: height - 10, label: `(${width},${height})` },
-            { x: Math.floor(width/2) - 40, y: Math.floor(height/2), label: `CENTER(${Math.floor(width/2)},${Math.floor(height/2)})` }
+            { x: Math.floor(width / 2) - 40, y: Math.floor(height / 2), label: `CENTER(${Math.floor(width / 2)},${Math.floor(height / 2)})` }
           ];
-          
+
           // Add semi-transparent background and coordinate text
           markers.forEach(marker => {
-            convertCmd += `-stroke none -fill 'rgba(0,0,0,0.7)' -draw "rectangle ${marker.x-2},${marker.y-12} ${marker.x + marker.label.length*8},${marker.y+2}" `;
+            convertCmd += `-stroke none -fill 'rgba(0,0,0,0.7)' -draw "rectangle ${marker.x - 2},${marker.y - 12} ${marker.x + marker.label.length * 8},${marker.y + 2}" `;
             convertCmd += `-stroke white -fill white -pointsize 12 -draw "text ${marker.x},${marker.y} '${marker.label}'" `;
           });
-          
+
           // Add coordinate system info at top
           const infoText = `Screenshot: ${width}x${height} | Mouse: ${coords.nutjsWidth}x${coords.nutjsHeight} | Scale: ${coords.scaleX.toFixed(2)}`;
-          convertCmd += `-stroke none -fill 'rgba(0,0,0,0.8)' -draw "rectangle 0,0 ${infoText.length*7},20" `;
+          convertCmd += `-stroke none -fill 'rgba(0,0,0,0.8)' -draw "rectangle 0,0 ${infoText.length * 7},20" `;
           convertCmd += `-stroke yellow -fill yellow -pointsize 14 -draw "text 5,15 '${infoText}'" `;
-          
+
           convertCmd += `"${finalFile}"`;
-          
+
           await execAsync(convertCmd);
           screenshotFile = finalFile;
           console.log(`📷 Added coordinate metadata overlay`);
@@ -689,25 +714,25 @@ class ComputerControlMCPServer {
           screenshotFile = rawFile;
         }
       }
-      
+
       const screenshotBuffer = await fs.promises.readFile(screenshotFile);
       const base64 = screenshotBuffer.toString('base64');
-      
+
       // Clean up temp files
-      await fs.promises.unlink(rawFile).catch(() => {});
-      await fs.promises.unlink(finalFile).catch(() => {});
-      
+      await fs.promises.unlink(rawFile).catch(() => { });
+      await fs.promises.unlink(finalFile).catch(() => { });
+
       console.log(`📷 Screenshot: ${base64.length} bytes, dimensions: ${coords.screenshotWidth}x${coords.screenshotHeight}, mouse space: ${coords.nutjsWidth}x${coords.nutjsHeight}`);
-      
+
       return {
         content: [
           {
             type: "text",
             text: `Screenshot captured (${base64.length} bytes)\n` +
-                  `Screenshot dimensions: ${coords.screenshotWidth}x${coords.screenshotHeight}\n` +
-                  `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
-                  `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}` +
-                  (addMetadata ? '\n\nCoordinate metadata overlay added to image.' : ''),
+              `Screenshot dimensions: ${coords.screenshotWidth}x${coords.screenshotHeight}\n` +
+              `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
+              `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}` +
+              (addMetadata ? '\n\nCoordinate metadata overlay added to image.' : ''),
           },
           {
             type: "image",
@@ -727,22 +752,22 @@ class ComputerControlMCPServer {
       if (typeof x !== 'number' || typeof y !== 'number') {
         throw new Error(`Invalid coordinates: x=${x} (${typeof x}), y=${y} (${typeof y})`);
       }
-      
+
       if (isNaN(x) || isNaN(y)) {
         throw new Error(`NaN coordinates: x=${x}, y=${y}`);
       }
-      
+
       // Normalize coordinates from screenshot space to mouse space
       const normalizedCoords = await this.normalizeCoordinates(x, y);
-      
+
       console.log(`🎯 Clicking at screenshot coordinates (${x}, ${y}) -> mouse coordinates (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-      
+
       await mouse.move(straightTo(normalizedCoords));
-      
+
       // Verify we moved to the right place
       const finalPos = await mouse.getPosition();
       console.log(`🎯 Mouse final position: (${finalPos.x}, ${finalPos.y})`);
-      
+
       await mouse.leftClick();
       return {
         content: [
@@ -759,7 +784,23 @@ class ComputerControlMCPServer {
 
   async typeText(text) {
     try {
+      console.log(`🔄 Attempting to type text: "${text}"`);
+
+      // Check if there's an active element that can receive text
+      try {
+        const activeWindow = await getActiveWindow();
+        const title = await activeWindow.getTitle();
+        console.log(`📝 Typing into active window: "${title}"`);
+      } catch (e) {
+        console.log('📝 Could not get active window info for typing');
+      }
+
+      console.log(`🎹 Sending text to keyboard: "${text}"`);
       await keyboard.type(text);
+
+      // nut-js will handle timing automatically
+
+      console.log(`✅ Text typed successfully: "${text}"`);
       return {
         content: [
           {
@@ -769,12 +810,15 @@ class ComputerControlMCPServer {
         ],
       };
     } catch (error) {
+      console.error(`❌ Error typing text "${text}":`, error);
       throw new Error(`Failed to type text: ${error.message}`);
     }
   }
 
   async pressKey(keyName) {
     try {
+      console.log(`🔄 Attempting to press key: "${keyName}"`);
+
       const keyMap = {
         'return': Key.Return,
         'enter': Key.Return,
@@ -799,8 +843,20 @@ class ComputerControlMCPServer {
       // Handle key combinations like "cmd+c", "ctrl+v"
       if (keyName.includes('+')) {
         const keys = keyName.split('+').map(k => k.trim().toLowerCase());
-        const mappedKeys = keys.map(key => keyMap[key] || key);
+        console.log(`🎹 Key combination detected: ${JSON.stringify(keys)}`);
+
+        const mappedKeys = keys.map(key => {
+          const mapped = keyMap[key];
+          if (!mapped) {
+            console.warn(`⚠️  Unknown key in combination: "${key}"`);
+          }
+          return mapped || key;
+        });
+
+        console.log(`🎹 Sending key combination: ${keys.join('+')}`);
         await keyboard.pressKey(...mappedKeys);
+        console.log(`✅ Key combination sent: ${keys.join('+')}`);
+
         return {
           content: [
             {
@@ -811,8 +867,18 @@ class ComputerControlMCPServer {
         };
       }
 
-      const key = keyMap[keyName.toLowerCase()] || keyName;
-      await keyboard.pressKey(key);
+      const key = keyMap[keyName.toLowerCase()];
+      if (!key) {
+        console.warn(`⚠️  Unknown key: "${keyName}", attempting to send as-is`);
+      }
+
+      const finalKey = key || keyName;
+      console.log(`🎹 Sending single key: "${keyName}" -> ${finalKey}`);
+      await keyboard.pressKey(finalKey);
+
+      // nut-js will handle timing automatically
+
+      console.log(`✅ Key sent successfully: "${keyName}"`);
       return {
         content: [
           {
@@ -822,6 +888,7 @@ class ComputerControlMCPServer {
         ],
       };
     } catch (error) {
+      console.error(`❌ Error pressing key "${keyName}":`, error);
       throw new Error(`Failed to press key ${keyName}: ${error.message}`);
     }
   }
@@ -853,21 +920,48 @@ class ComputerControlMCPServer {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
+      console.log(`🔄 Opening application: ${appName}`);
+
+      // Check if the application is already running
+      try {
+        const windows = await getWindows();
+        const existingWindow = windows.find(window =>
+          window.title && window.title.toLowerCase().includes(appName.toLowerCase().replace(' ', ''))
+        );
+
+        if (existingWindow) {
+          console.log(`📝 ${appName} is already running, focusing existing window`);
+          await existingWindow.focus();
+          return {
+            content: [{
+              type: "text",
+              text: `Focused existing ${appName} window`,
+            }],
+          };
+        }
+      } catch (e) {
+        console.log('Could not check for existing windows, proceeding with launch');
+      }
+
       // Open application and bring it to foreground
       await execAsync(`open -a "${appName}"`);
-      
-      // Wait a moment for the app to launch
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      console.log(`🔄 Launched ${appName}`);
+
+      // Wait for the app to launch - using a Promise for app startup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       // Use osascript to activate the application and bring it to front
       try {
         await execAsync(`osascript -e 'tell application "${appName}" to activate'`);
+        console.log(`🔄 Activated ${appName} via osascript`);
       } catch (activateError) {
-        // If osascript fails, continue anyway
         console.log('Could not activate application via osascript:', activateError.message);
       }
-      
+
+      // Brief additional wait for app readiness
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       return {
         content: [
           {
@@ -897,21 +991,6 @@ class ComputerControlMCPServer {
     }
   }
 
-  async wait(ms) {
-    try {
-      await sleep(ms);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Waited ${ms}ms`,
-          },
-        ],
-      };
-    } catch (error) {
-      throw new Error(`Failed to wait: ${error.message}`);
-    }
-  }
 
   // Additional Screen Operations
   async captureRegion(x, y, width, height) {
@@ -919,18 +998,18 @@ class ComputerControlMCPServer {
       const os = await import('os');
       const path = await import('path');
       const fs = await import('fs');
-      
+
       const tempDir = os.tmpdir();
       const tempFile = path.join(tempDir, `region-${Date.now()}.png`);
-      
+
       const region = new Region(x, y, width, height);
       await screen.captureRegion(tempFile, region);
-      
+
       const screenshotBuffer = await fs.promises.readFile(tempFile);
       const base64 = screenshotBuffer.toString('base64');
-      
+
       await fs.promises.unlink(tempFile);
-      
+
       return {
         content: [
           {
@@ -970,9 +1049,9 @@ class ComputerControlMCPServer {
     try {
       const normalizedCoords = await this.normalizeCoordinates(x, y);
       const color = await screen.colorAt(normalizedCoords);
-      
+
       console.log(`🎨 Getting color at screenshot coordinates (${x}, ${y}) -> mouse coordinates (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-      
+
       return {
         content: [
           {
@@ -992,10 +1071,10 @@ class ComputerControlMCPServer {
       if (typeof x !== 'number' || typeof y !== 'number') {
         throw new Error(`Invalid coordinates: x=${x} (${typeof x}), y=${y} (${typeof y})`);
       }
-      
+
       const normalizedCoords = await this.normalizeCoordinates(x, y);
       console.log(`🎯 Right-clicking at screenshot coordinates (${x}, ${y}) -> mouse coordinates (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-      
+
       await mouse.move(straightTo(normalizedCoords));
       await mouse.rightClick();
       return {
@@ -1016,10 +1095,10 @@ class ComputerControlMCPServer {
       if (typeof x !== 'number' || typeof y !== 'number') {
         throw new Error(`Invalid coordinates: x=${x} (${typeof x}), y=${y} (${typeof y})`);
       }
-      
+
       const normalizedCoords = await this.normalizeCoordinates(x, y);
       console.log(`🎯 Double-clicking at screenshot coordinates (${x}, ${y}) -> mouse coordinates (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-      
+
       await mouse.move(straightTo(normalizedCoords));
       await mouse.doubleClick(Button.LEFT);
       return {
@@ -1039,9 +1118,9 @@ class ComputerControlMCPServer {
     try {
       const fromCoords = await this.normalizeCoordinates(fromX, fromY);
       const toCoords = await this.normalizeCoordinates(toX, toY);
-      
+
       console.log(`🎯 Dragging from screenshot (${fromX}, ${fromY}) -> mouse (${fromCoords.x.toFixed(1)}, ${fromCoords.y.toFixed(1)}) to screenshot (${toX}, ${toY}) -> mouse (${toCoords.x.toFixed(1)}, ${toCoords.y.toFixed(1)})`);
-      
+
       const path = [fromCoords, toCoords];
       await mouse.drag(path);
       return {
@@ -1094,10 +1173,10 @@ class ComputerControlMCPServer {
       if (typeof x !== 'number' || typeof y !== 'number') {
         throw new Error(`Invalid coordinates: x=${x} (${typeof x}), y=${y} (${typeof y})`);
       }
-      
+
       const normalizedCoords = await this.normalizeCoordinates(x, y);
       console.log(`🎯 Moving mouse to screenshot coordinates (${x}, ${y}) -> mouse coordinates (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-      
+
       await mouse.move(straightTo(normalizedCoords));
       return {
         content: [
@@ -1159,7 +1238,7 @@ class ComputerControlMCPServer {
       const activeWindow = await getActiveWindow();
       const region = await activeWindow.getRegion();
       const title = await activeWindow.getTitle();
-      
+
       return {
         content: [
           {
@@ -1176,14 +1255,14 @@ class ComputerControlMCPServer {
   async focusWindow(title) {
     try {
       const windows = await getWindows();
-      const targetWindow = windows.find(window => 
+      const targetWindow = windows.find(window =>
         window.title && window.title.toLowerCase().includes(title.toLowerCase())
       );
-      
+
       if (!targetWindow) {
         throw new Error(`Window with title containing "${title}" not found`);
       }
-      
+
       await targetWindow.focus();
       return {
         content: [
@@ -1201,14 +1280,14 @@ class ComputerControlMCPServer {
   async moveWindow(title, x, y) {
     try {
       const windows = await getWindows();
-      const targetWindow = windows.find(window => 
+      const targetWindow = windows.find(window =>
         window.title && window.title.toLowerCase().includes(title.toLowerCase())
       );
-      
+
       if (!targetWindow) {
         throw new Error(`Window with title containing "${title}" not found`);
       }
-      
+
       await targetWindow.move({ x, y });
       return {
         content: [
@@ -1226,14 +1305,14 @@ class ComputerControlMCPServer {
   async resizeWindow(title, width, height) {
     try {
       const windows = await getWindows();
-      const targetWindow = windows.find(window => 
+      const targetWindow = windows.find(window =>
         window.title && window.title.toLowerCase().includes(title.toLowerCase())
       );
-      
+
       if (!targetWindow) {
         throw new Error(`Window with title containing "${title}" not found`);
       }
-      
+
       await targetWindow.resize({ width, height });
       return {
         content: [
@@ -1287,19 +1366,19 @@ class ComputerControlMCPServer {
       const screenWidth = await screen.width();
       const screenHeight = await screen.height();
       const currentMousePos = await mouse.getPosition();
-      
+
       // Move to the test coordinates and check where we actually end up
       await mouse.move(straightTo({ x, y }));
       const actualPos = await mouse.getPosition();
-      
+
       // Get color at that position
       const color = await screen.colorAt({ x: actualPos.x, y: actualPos.y });
-      
+
       // Get display scale information from system
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
       let displayInfo = 'Unknown';
       try {
         const result = await execAsync('system_profiler SPDisplaysDataType | grep Resolution');
@@ -1307,18 +1386,18 @@ class ComputerControlMCPServer {
       } catch (e) {
         // Ignore if command fails
       }
-      
+
       return {
         content: [
           {
             type: "text",
             text: `Coordinate Debug:\n` +
-                  `Requested: (${x}, ${y})\n` +
-                  `Actual mouse position: (${actualPos.x}, ${actualPos.y})\n` +
-                  `Screen dimensions (nut-js): ${screenWidth}x${screenHeight}\n` +
-                  `Color at position: RGB(${color.R}, ${color.G}, ${color.B})\n` +
-                  `Display info: ${displayInfo}\n` +
-                  `Original mouse position: (${currentMousePos.x}, ${currentMousePos.y})`,
+              `Requested: (${x}, ${y})\n` +
+              `Actual mouse position: (${actualPos.x}, ${actualPos.y})\n` +
+              `Screen dimensions (nut-js): ${screenWidth}x${screenHeight}\n` +
+              `Color at position: RGB(${color.R}, ${color.G}, ${color.B})\n` +
+              `Display info: ${displayInfo}\n` +
+              `Original mouse position: (${currentMousePos.x}, ${currentMousePos.y})`,
           },
         ],
       };
@@ -1335,17 +1414,17 @@ class ComputerControlMCPServer {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
       // 1. Get nut-js reported screen dimensions
       const nutjsWidth = await screen.width();
       const nutjsHeight = await screen.height();
-      
+
       // 2. Take a screenshot and analyze its actual dimensions
       const tempDir = os.tmpdir();
       const tempFile = path.join(tempDir, `analysis-${Date.now()}.png`);
-      
+
       await execAsync(`screencapture -x -t png "${tempFile}"`);
-      
+
       // Use imagemagick or similar to get actual image dimensions
       let actualWidth, actualHeight;
       try {
@@ -1360,7 +1439,7 @@ class ComputerControlMCPServer {
         actualWidth = buffer.readUInt32BE(16);
         actualHeight = buffer.readUInt32BE(20);
       }
-      
+
       // 3. Test coordinate mapping at key points
       const testPoints = [
         { x: 0, y: 0, desc: "Top-left corner" },
@@ -1368,10 +1447,10 @@ class ComputerControlMCPServer {
         { x: nutjsWidth - 1, y: nutjsHeight - 1, desc: "Bottom-right corner" },
         { x: Math.floor(nutjsWidth / 4), y: Math.floor(nutjsHeight / 4), desc: "Quarter point" }
       ];
-      
+
       const originalPos = await mouse.getPosition();
       const testResults = [];
-      
+
       for (const point of testPoints) {
         try {
           await mouse.move(straightTo({ x: point.x, y: point.y }));
@@ -1381,7 +1460,7 @@ class ComputerControlMCPServer {
             actual: actualPos,
             diff: { x: actualPos.x - point.x, y: actualPos.y - point.y }
           });
-          await sleep(100); // Small delay between tests
+          await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between tests
         } catch (e) {
           testResults.push({
             requested: point,
@@ -1389,14 +1468,14 @@ class ComputerControlMCPServer {
           });
         }
       }
-      
+
       // Restore original mouse position
       await mouse.move(straightTo(originalPos));
-      
+
       // 4. Calculate scaling factors
       const scaleX = actualWidth / nutjsWidth;
       const scaleY = actualHeight / nutjsHeight;
-      
+
       // 5. Get system display information
       let displayInfo = 'Unknown';
       try {
@@ -1405,10 +1484,10 @@ class ComputerControlMCPServer {
       } catch (e) {
         displayInfo = 'Could not retrieve display info';
       }
-      
+
       // Clean up
       await fs.promises.unlink(tempFile);
-      
+
       const analysis = {
         nutjsDimensions: { width: nutjsWidth, height: nutjsHeight },
         screenshotDimensions: { width: actualWidth, height: actualHeight },
@@ -1416,24 +1495,24 @@ class ComputerControlMCPServer {
         testResults,
         displayInfo: displayInfo.substring(0, 500)
       };
-      
+
       return {
         content: [
           {
             type: "text",
             text: `Coordinate System Analysis:\n\n` +
-                  `nut-js Screen Dimensions: ${nutjsWidth} x ${nutjsHeight}\n` +
-                  `Screenshot Dimensions: ${actualWidth} x ${actualHeight}\n` +
-                  `Scaling Factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}\n\n` +
-                  `Test Results:\n` +
-                  testResults.map((result, i) => 
-                    `${i + 1}. ${testPoints[i].desc}: ` +
-                    (result.error ? `ERROR: ${result.error}` :
-                    `Requested (${result.requested.x}, ${result.requested.y}) -> ` +
-                    `Actual (${result.actual.x}, ${result.actual.y}) ` +
-                    `Diff (${result.diff.x}, ${result.diff.y})`)
-                  ).join('\n') +
-                  `\n\nDisplay Info:\n${analysis.displayInfo}`,
+              `nut-js Screen Dimensions: ${nutjsWidth} x ${nutjsHeight}\n` +
+              `Screenshot Dimensions: ${actualWidth} x ${actualHeight}\n` +
+              `Scaling Factors: X=${scaleX.toFixed(3)}, Y=${scaleY.toFixed(3)}\n\n` +
+              `Test Results:\n` +
+              testResults.map((result, i) =>
+                `${i + 1}. ${testPoints[i].desc}: ` +
+                (result.error ? `ERROR: ${result.error}` :
+                  `Requested (${result.requested.x}, ${result.requested.y}) -> ` +
+                  `Actual (${result.actual.x}, ${result.actual.y}) ` +
+                  `Diff (${result.diff.x}, ${result.diff.y})`)
+              ).join('\n') +
+              `\n\nDisplay Info:\n${analysis.displayInfo}`,
           },
         ],
       };
@@ -1450,26 +1529,26 @@ class ComputerControlMCPServer {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
       // Get current dimensions
       const coords = await this.ensureCoordinateSystem();
-      
+
       // Take a screenshot first
       const tempDir = os.tmpdir();
       const screenshotFile = path.join(tempDir, `test-screenshot-${Date.now()}.png`);
       const annotatedFile = path.join(tempDir, `test-annotated-${Date.now()}.png`);
-      
+
       await execAsync(`screencapture -x -t png "${screenshotFile}"`);
-      
+
       // Create an annotated version with coordinate grid and markers
       // Using ImageMagick convert command to add grid and labels
       const gridSize = 100;
       const width = coords.screenshotWidth;
       const height = coords.screenshotHeight;
-      
+
       // Add coordinate grid and corner markers
       let convertCmd = `convert "${screenshotFile}" `;
-      
+
       // Add grid lines every 100px
       for (let x = 0; x < width; x += gridSize) {
         convertCmd += `-stroke red -strokewidth 1 -draw "line ${x},0 ${x},${height}" `;
@@ -1477,47 +1556,47 @@ class ComputerControlMCPServer {
       for (let y = 0; y < height; y += gridSize) {
         convertCmd += `-stroke red -strokewidth 1 -draw "line 0,${y} ${width},${y}" `;
       }
-      
+
       // Add corner markers and coordinates
       const markers = [
         { x: 50, y: 50, label: '(50,50)' },
-        { x: width - 100, y: 50, label: `(${width-100},50)` },
-        { x: 50, y: height - 50, label: `(50,${height-50})` },
-        { x: width - 100, y: height - 50, label: `(${width-100},${height-50})` },
-        { x: Math.floor(width/2), y: Math.floor(height/2), label: `CENTER(${Math.floor(width/2)},${Math.floor(height/2)})` }
+        { x: width - 100, y: 50, label: `(${width - 100},50)` },
+        { x: 50, y: height - 50, label: `(50,${height - 50})` },
+        { x: width - 100, y: height - 50, label: `(${width - 100},${height - 50})` },
+        { x: Math.floor(width / 2), y: Math.floor(height / 2), label: `CENTER(${Math.floor(width / 2)},${Math.floor(height / 2)})` }
       ];
-      
+
       markers.forEach(marker => {
         // Add circle marker
-        convertCmd += `-stroke yellow -strokewidth 3 -fill none -draw "circle ${marker.x},${marker.y} ${marker.x+10},${marker.y}" `;
+        convertCmd += `-stroke yellow -strokewidth 3 -fill none -draw "circle ${marker.x},${marker.y} ${marker.x + 10},${marker.y}" `;
         // Add text label
-        convertCmd += `-stroke black -strokewidth 1 -fill yellow -pointsize 16 -draw "text ${marker.x+15},${marker.y-5} '${marker.label}'" `;
+        convertCmd += `-stroke black -strokewidth 1 -fill yellow -pointsize 16 -draw "text ${marker.x + 15},${marker.y - 5} '${marker.label}'" `;
       });
-      
+
       convertCmd += `"${annotatedFile}"`;
-      
+
       try {
         await execAsync(convertCmd);
-        
+
         // Read the annotated file
         const annotatedBuffer = await fs.promises.readFile(annotatedFile);
         const annotatedBase64 = annotatedBuffer.toString('base64');
-        
+
         // Clean up files
-        await fs.promises.unlink(screenshotFile).catch(() => {});
-        await fs.promises.unlink(annotatedFile).catch(() => {});
-        
+        await fs.promises.unlink(screenshotFile).catch(() => { });
+        await fs.promises.unlink(annotatedFile).catch(() => { });
+
         return {
           content: [
             {
               type: "text",
               text: `Test image created with coordinate grid and markers:\n` +
-                    `Screenshot dimensions: ${width}x${height}\n` +
-                    `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
-                    `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}\n\n` +
-                    `Markers placed at:\n` +
-                    markers.map(m => `- ${m.label}`).join('\n') + '\n\n' +
-                    `Grid lines every ${gridSize} pixels in screenshot coordinates.`,
+                `Screenshot dimensions: ${width}x${height}\n` +
+                `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
+                `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}\n\n` +
+                `Markers placed at:\n` +
+                markers.map(m => `- ${m.label}`).join('\n') + '\n\n' +
+                `Grid lines every ${gridSize} pixels in screenshot coordinates.`,
             },
             {
               type: "image",
@@ -1530,19 +1609,19 @@ class ComputerControlMCPServer {
         // Fallback without ImageMagick
         const screenshotBuffer = await fs.promises.readFile(screenshotFile);
         const screenshotBase64 = screenshotBuffer.toString('base64');
-        
-        await fs.promises.unlink(screenshotFile).catch(() => {});
-        
+
+        await fs.promises.unlink(screenshotFile).catch(() => { });
+
         return {
           content: [
             {
               type: "text",
               text: `Test screenshot created (ImageMagick not available for grid overlay):\n` +
-                    `Screenshot dimensions: ${width}x${height}\n` +
-                    `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
-                    `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}\n\n` +
-                    `Test coordinates to try:\n` +
-                    markers.map(m => `- ${m.label}`).join('\n'),
+                `Screenshot dimensions: ${width}x${height}\n` +
+                `Mouse coordinate space: ${coords.nutjsWidth}x${coords.nutjsHeight}\n` +
+                `Scaling factors: X=${coords.scaleX.toFixed(3)}, Y=${coords.scaleY.toFixed(3)}\n\n` +
+                `Test coordinates to try:\n` +
+                markers.map(m => `- ${m.label}`).join('\n'),
             },
             {
               type: "image",
@@ -1561,7 +1640,7 @@ class ComputerControlMCPServer {
     try {
       const originalPos = await mouse.getPosition();
       const results = [];
-      
+
       // Default test points if none provided
       if (!testPoints || testPoints.length === 0) {
         const coords = await this.ensureCoordinateSystem();
@@ -1573,27 +1652,27 @@ class ComputerControlMCPServer {
           { x: coords.screenshotWidth - 100, y: coords.screenshotHeight - 100, label: "Bottom-right quadrant" }
         ];
       }
-      
+
       for (const point of testPoints) {
         try {
           console.log(`\n🎯 Testing point: ${point.label} at screenshot coordinates (${point.x}, ${point.y})`);
-          
+
           // Normalize coordinates
           const normalizedCoords = await this.normalizeCoordinates(point.x, point.y);
           console.log(`📏 Normalized to mouse coordinates: (${normalizedCoords.x.toFixed(1)}, ${normalizedCoords.y.toFixed(1)})`);
-          
+
           // Move mouse
           await mouse.move(straightTo(normalizedCoords));
-          
+
           // Get actual position
           const actualPos = await mouse.getPosition();
           console.log(`📍 Actual mouse position: (${actualPos.x}, ${actualPos.y})`);
-          
+
           // Calculate accuracy
           const diffX = actualPos.x - normalizedCoords.x;
           const diffY = actualPos.y - normalizedCoords.y;
           const distance = Math.sqrt(diffX * diffX + diffY * diffY);
-          
+
           results.push({
             label: point.label,
             requested: { x: point.x, y: point.y },
@@ -1601,8 +1680,8 @@ class ComputerControlMCPServer {
             actual: { x: actualPos.x, y: actualPos.y },
             error: { x: diffX, y: diffY, distance: distance.toFixed(2) }
           });
-          
-          await sleep(500); // Pause between tests
+
+          await new Promise(resolve => setTimeout(resolve, 500)); // Pause between tests
         } catch (e) {
           results.push({
             label: point.label,
@@ -1611,21 +1690,21 @@ class ComputerControlMCPServer {
           });
         }
       }
-      
+
       // Restore original position
       await mouse.move(straightTo(originalPos));
-      
-      const report = results.map((result, i) => 
+
+      const report = results.map((result, i) =>
         `${i + 1}. ${result.label}:\n` +
         `   Screenshot coords: (${result.requested.x}, ${result.requested.y})\n` +
-        (result.error && typeof result.error === 'string' ? 
+        (result.error && typeof result.error === 'string' ?
           `   ERROR: ${result.error}` :
           `   Normalized coords: (${result.normalized.x.toFixed(1)}, ${result.normalized.y.toFixed(1)})\n` +
           `   Actual position: (${result.actual.x}, ${result.actual.y})\n` +
           `   Error: (${result.error.x.toFixed(1)}, ${result.error.y.toFixed(1)}) distance: ${result.error.distance}px`
         )
       ).join('\n\n');
-      
+
       return {
         content: [
           {
@@ -1642,8 +1721,34 @@ class ComputerControlMCPServer {
   // Hotkey Navigation Methods
   async focusAddressBar() {
     try {
+      console.log('🔄 Focusing address bar...');
+
+      // First, ensure Chrome is focused by trying to focus a Chrome window
+      try {
+        const windows = await getWindows();
+        const chromeWindow = windows.find(window =>
+          window.title && (
+            window.title.toLowerCase().includes('chrome') ||
+            window.title.toLowerCase().includes('google chrome') ||
+            window.title.includes(' - Google Chrome')
+          )
+        );
+
+        if (chromeWindow) {
+          console.log(`📝 Found Chrome window: "${chromeWindow.title}"`);
+          await chromeWindow.focus();
+          // nut-js autoDelay will handle timing
+        } else {
+          console.log('📝 No Chrome window found, sending keys to active window');
+        }
+      } catch (e) {
+        console.log('📝 Could not focus Chrome window, proceeding with active window');
+      }
+
+      console.log('🎹 Sending Cmd+L to focus address bar');
       await keyboard.pressKey(Key.LeftCmd, Key.L);
-      console.log('🔄 Pressed Cmd+L to focus address bar');
+
+      console.log('✅ Address bar focus command sent');
       return {
         content: [{
           type: "text",
@@ -1651,6 +1756,7 @@ class ComputerControlMCPServer {
         }],
       };
     } catch (error) {
+      console.error('❌ Error focusing address bar:', error);
       throw new Error(`Failed to focus address bar: ${error.message}`);
     }
   }
@@ -1907,7 +2013,7 @@ class ComputerControlMCPServer {
 
       await keyboard.pressKey(...mappedKeys);
       console.log(`🔄 Executed hotkey: ${keys.join('+')} - ${description}`);
-      
+
       return {
         content: [{
           type: "text",
@@ -1919,15 +2025,124 @@ class ComputerControlMCPServer {
     }
   }
 
+  async diagnosticKeyTest(testKey) {
+    try {
+      console.log(`\n🔍 DIAGNOSTIC KEY TEST: "${testKey}"`);
+
+      // Get current system state
+      const activeWindow = await getActiveWindow();
+      const title = await activeWindow.getTitle();
+      const region = await activeWindow.getRegion();
+      const mousePos = await mouse.getPosition();
+
+      console.log(`📝 Active window: "${title}"`);
+      console.log(`📏 Window region: ${JSON.stringify(region)}`);
+      console.log(`🖘 Mouse position: (${mousePos.x}, ${mousePos.y})`);
+
+      // Test the key mapping
+      const keyMap = {
+        'l': Key.L,
+        'cmd': Key.LeftCmd,
+        'return': Key.Return,
+        'enter': Key.Return,
+        'tab': Key.Tab,
+      };
+
+      const mappedKey = keyMap[testKey.toLowerCase()];
+      console.log(`🎹 Key mapping: "${testKey}" -> ${mappedKey || 'UNKNOWN'}`);
+
+      if (!mappedKey) {
+        return {
+          content: [{
+            type: "text",
+            text: `Key "${testKey}" not found in mapping. Available keys: ${Object.keys(keyMap).join(', ')}`,
+          }],
+        };
+      }
+
+      // Test pressing the key
+      console.log(`🎹 Sending test key: ${testKey}`);
+      await keyboard.pressKey(mappedKey);
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Get new state to see what changed
+      const newActiveWindow = await getActiveWindow();
+      const newTitle = await newActiveWindow.getTitle();
+      const newMousePos = await mouse.getPosition();
+
+      console.log(`📝 New active window: "${newTitle}"`);
+      console.log(`🖘 New mouse position: (${newMousePos.x}, ${newMousePos.y})`);
+
+      return {
+        content: [{
+          type: "text",
+          text: `Diagnostic test for key "${testKey}" completed.\n` +
+            `Before: Window="${title}"\n` +
+            `After: Window="${newTitle}"\n` +
+            `Mouse moved: ${mousePos.x !== newMousePos.x || mousePos.y !== newMousePos.y}`,
+        }],
+      };
+    } catch (error) {
+      throw new Error(`Failed to test key "${testKey}": ${error.message}`);
+    }
+  }
+
+  async checkSystemState() {
+    try {
+      console.log('\n🔍 SYSTEM STATE CHECK');
+
+      // Get comprehensive system information
+      const activeWindow = await getActiveWindow();
+      const title = await activeWindow.getTitle();
+      const region = await activeWindow.getRegion();
+      const mousePos = await mouse.getPosition();
+      const allWindows = await getWindows();
+
+      console.log(`📝 Active window: "${title}"`);
+      console.log(`📏 Window region: ${JSON.stringify(region)}`);
+      console.log(`🖘 Mouse position: (${mousePos.x}, ${mousePos.y})`);
+      console.log(`📄 Total windows: ${allWindows.length}`);
+
+      // List all windows
+      const windowList = [];
+      for (let i = 0; i < Math.min(allWindows.length, 10); i++) {
+        try {
+          const win = allWindows[i];
+          const winTitle = await win.getTitle();
+          const winRegion = await win.getRegion();
+          windowList.push(`${i + 1}. "${winTitle}" at (${winRegion.left}, ${winRegion.top})`);
+        } catch (e) {
+          windowList.push(`${i + 1}. [Error getting window info]`);
+        }
+      }
+
+      console.log('📄 Window list:');
+      windowList.forEach(win => console.log(`   ${win}`));
+
+      return {
+        content: [{
+          type: "text",
+          text: `System State Check:\n` +
+            `Active: "${title}"\n` +
+            `Mouse: (${mousePos.x}, ${mousePos.y})\n` +
+            `Windows: ${allWindows.length} total\n\n` +
+            `Window List:\n${windowList.join('\n')}`,
+        }],
+      };
+    } catch (error) {
+      throw new Error(`Failed to check system state: ${error.message}`);
+    }
+  }
+
   // Coordinate system management
   async ensureCoordinateSystem() {
     // Cache for 5 minutes
     const cacheValidMs = 5 * 60 * 1000;
     const now = Date.now();
-    
-    if (this.coordinateCache.lastUpdated && 
-        (now - this.coordinateCache.lastUpdated) < cacheValidMs &&
-        this.coordinateCache.scaleX !== null) {
+
+    if (this.coordinateCache.lastUpdated &&
+      (now - this.coordinateCache.lastUpdated) < cacheValidMs &&
+      this.coordinateCache.scaleX !== null) {
       return this.coordinateCache;
     }
 
@@ -1938,17 +2153,17 @@ class ComputerControlMCPServer {
       const { exec } = await import('child_process');
       const { promisify } = await import('util');
       const execAsync = promisify(exec);
-      
+
       // Get nut-js dimensions
       const nutjsWidth = await screen.width();
       const nutjsHeight = await screen.height();
-      
+
       // Take a quick screenshot to get actual dimensions
       const tempDir = os.tmpdir();
       const tempFile = path.join(tempDir, `coord-check-${Date.now()}.png`);
-      
+
       await execAsync(`screencapture -x -t png "${tempFile}"`);
-      
+
       // Get actual screenshot dimensions
       let screenshotWidth, screenshotHeight;
       try {
@@ -1960,13 +2175,13 @@ class ComputerControlMCPServer {
         screenshotWidth = nutjsWidth;
         screenshotHeight = nutjsHeight;
       }
-      
-      await fs.promises.unlink(tempFile).catch(() => {});
-      
+
+      await fs.promises.unlink(tempFile).catch(() => { });
+
       // Calculate scaling factors
       const scaleX = screenshotWidth / nutjsWidth;
       const scaleY = screenshotHeight / nutjsHeight;
-      
+
       // Update cache
       this.coordinateCache = {
         nutjsWidth,
@@ -1977,16 +2192,16 @@ class ComputerControlMCPServer {
         scaleY,
         lastUpdated: now
       };
-      
+
       console.log(`📏 Coordinate system: nut-js(${nutjsWidth}x${nutjsHeight}) -> screenshot(${screenshotWidth}x${screenshotHeight}) scale(${scaleX.toFixed(2)}, ${scaleY.toFixed(2)})`);
-      
+
       return this.coordinateCache;
     } catch (error) {
       console.error('Failed to determine coordinate system, using 1:1 mapping:', error.message);
       // Fallback to 1:1 mapping
       const nutjsWidth = await screen.width();
       const nutjsHeight = await screen.height();
-      
+
       this.coordinateCache = {
         nutjsWidth,
         nutjsHeight,
@@ -1996,7 +2211,7 @@ class ComputerControlMCPServer {
         scaleY: 1,
         lastUpdated: now
       };
-      
+
       return this.coordinateCache;
     }
   }
@@ -2004,17 +2219,17 @@ class ComputerControlMCPServer {
   // Convert screenshot coordinates to mouse coordinates
   async normalizeCoordinates(screenshotX, screenshotY) {
     const coords = await this.ensureCoordinateSystem();
-    
+
     // Convert from screenshot coordinate space to mouse coordinate space
     const mouseX = screenshotX / coords.scaleX;
     const mouseY = screenshotY / coords.scaleY;
-    
+
     // Clamp to valid ranges
     const clampedX = Math.max(0, Math.min(mouseX, coords.nutjsWidth - 1));
     const clampedY = Math.max(0, Math.min(mouseY, coords.nutjsHeight - 1));
-    
+
     console.log(`📏 Coordinate transform: screenshot(${screenshotX}, ${screenshotY}) -> mouse(${clampedX.toFixed(1)}, ${clampedY.toFixed(1)})`);
-    
+
     return { x: clampedX, y: clampedY };
   }
 

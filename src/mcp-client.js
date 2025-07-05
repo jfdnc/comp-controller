@@ -25,8 +25,8 @@ export class MCPClient {
 
       await this.client.connect(this.transport);
       this.connected = true;
-      
-      console.log('✅ Connected to MCP server');
+
+      //console.log('✅ Connected to MCP server');
       return true;
     } catch (error) {
       console.error('❌ Failed to connect to MCP server:', error);
@@ -39,9 +39,9 @@ export class MCPClient {
       if (this.client && this.connected) {
         await this.client.close();
       }
-      
+
       this.connected = false;
-      console.log('MCP client disconnected');
+      //console.log('MCP client disconnected');
     } catch (error) {
       console.error('Error disconnecting MCP client:', error);
     }
@@ -81,7 +81,7 @@ export class MCPClient {
 
   async takeScreenshot() {
     const result = await this.callTool('takeScreenshot');
-    
+
     if (result.isError) {
       throw new Error(result.content[0]?.text || 'Failed to take screenshot');
     }

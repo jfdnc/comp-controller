@@ -6,20 +6,20 @@ export class AudioManager {
   }
 
   async startListening() {
-    console.log('🎤 Audio Manager: Starting listening (STUB - not implemented)');
+    //console.log('🎤 Audio Manager: Starting listening (STUB - not implemented)');
     this.listening = true;
-    
+
     return true;
   }
 
   async stopListening() {
-    console.log('🎤 Audio Manager: Stopping listening (STUB)');
+    //console.log('🎤 Audio Manager: Stopping listening (STUB)');
     this.listening = false;
-    
+
     if (this.microphoneStream) {
       this.microphoneStream = null;
     }
-    
+
     return true;
   }
 
@@ -41,7 +41,7 @@ export class AudioManager {
   }
 
   async setMicrophoneGain(gain) {
-    console.log(`🎤 Audio Manager: Setting microphone gain to ${gain} (STUB)`);
+    //console.log(`🎤 Audio Manager: Setting microphone gain to ${gain} (STUB)`);
     return true;
   }
 
@@ -58,12 +58,12 @@ export class AudioManager {
     };
 
     const config = { ...defaultOptions, ...options };
-    console.log('🎤 Audio Manager: Configuring speech recognition (STUB):', config);
+    //console.log('🎤 Audio Manager: Configuring speech recognition (STUB):', config);
     return config;
   }
 
   mockSpeechInput(text) {
-    console.log(`🎤 Audio Manager: Mock speech input: "${text}"`);
+    //console.log(`🎤 Audio Manager: Mock speech input: "${text}"`);
     this.callbacks.forEach(callback => {
       callback({
         transcript: text,

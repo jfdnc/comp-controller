@@ -77,8 +77,7 @@ Your job is to determine what actions need to be taken to fulfill the user's int
 - analyzeCoordinateSystem(): Get comprehensive coordinate system analysis
 - debugCoordinates(x, y): Test specific coordinate mapping
 
-**Utility:**
-- wait(ms): Wait for specified milliseconds
+**Debug/Analysis:**
 - analyzeCoordinateSystem(): Analyze coordinate scaling and mapping
 - debugCoordinates(x, y): Test coordinate mapping at specific point
 
@@ -99,9 +98,10 @@ COORDINATE GUIDELINES (when hotkeys aren't sufficient):
 
 APPLICATION GUIDELINES:
 1. For web browsing tasks: If Chrome is not visible or active in the screenshot, ALWAYS start by opening "Google Chrome"
-2. Always wait at least 3 seconds after opening an application before interacting with it
+2. Applications will be ready automatically - no manual waits needed
 3. Use switchApplication() to focus apps instead of clicking on them
 4. Always verify the current state before taking actions
+5. NEVER use wait() - all tools handle timing automatically
 
 Think step by step about what needs to happen to accomplish the user's goal. Return your response as a JSON array of actions, where each action has:
 - tool: the tool name
@@ -128,13 +128,16 @@ Example format using PREFERRED hotkey methods:
   {"tool": "pressKey", "args": {"key": "return"}, "description": "Press Enter to navigate"}
 ]
 
-Example with application switching:
-// I can see multiple applications, need to focus Chrome
+Example with application opening:
+// Need to open Chrome and navigate
 [
-  {"tool": "switchApplication", "args": {"type": "application"}, "description": "Switch to Chrome using Cmd+Tab"},
-  {"tool": "newTab", "args": {}, "description": "Open new tab using Cmd+T"},
-  {"tool": "focusAddressBar", "args": {}, "description": "Focus address bar using Cmd+L"}
+  {"tool": "openApplication", "args": {"appName": "Google Chrome"}, "description": "Open Chrome browser"},
+  {"tool": "focusAddressBar", "args": {}, "description": "Focus address bar using Cmd+L"},
+  {"tool": "typeText", "args": {"text": "reuters.com"}, "description": "Type the URL"},
+  {"tool": "pressKey", "args": {"key": "return"}, "description": "Navigate to site"}
 ]
+
+NOTE: No wait() calls needed - all tools handle timing and readiness automatically.
 
 CRITICAL: For all coordinate-based actions (clickAt, rightClickAt, doubleClickAt, dragMouse, moveMouse, getColorAt):
 - Use coordinates EXACTLY as they appear in the screenshot
@@ -190,15 +193,35 @@ CRITICAL: For all coordinate-based actions (clickAt, rightClickAt, doubleClickAt
       }
 
       const responseText = data.content[0].text.trim();
-      
-      // Debug logging
-      console.log('🔍 Claude\'s response:', responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''));
-      console.log('📊 Screenshot size:', screenshot ? screenshot.length : 'No screenshot');
+
+      // Enhanced Claude decision logging
+      console.log(`\n${'='.repeat(60)}`);
+      console.log('🤖 CLAUDE DECISION LOG');
+      console.log(`${'='.repeat(60)}`);
+      console.log('📊 Screenshot size:', screenshot ? `${screenshot.length} bytes` : 'No screenshot');
+      console.log('💬 User intent:', userIntent);
+      console.log('⏱️  Timestamp:', new Date().toISOString());
+
+      // Extract and display Claude's reasoning
+      let claudeReasoning = '';
+      if (responseText.includes('//')) {
+        const lines = responseText.split('\n');
+        const reasoningLines = lines.filter(line => line.trim().startsWith('//')).slice(0, 3);
+        claudeReasoning = reasoningLines.map(line => line.replace('//', '').trim()).join(' ');
+      }
+
+      if (claudeReasoning) {
+        console.log('🧠 Claude\'s analysis:', claudeReasoning);
+      }
+
+      console.log('📝 Claude\'s full response:');
+      console.log(responseText);
+      console.log(`${'='.repeat(60)}\n`);
 
       try {
         // Extract JSON array from response (might have comments)
         let jsonText = responseText;
-        
+
         // If response starts with a comment, extract the JSON array
         if (responseText.includes('//')) {
           const lines = responseText.split('\n');
@@ -207,24 +230,31 @@ CRITICAL: For all coordinate-based actions (clickAt, rightClickAt, doubleClickAt
             jsonText = lines.slice(jsonStart).join('\n');
           }
         }
-        
+
         const actions = JSON.parse(jsonText);
         if (!Array.isArray(actions)) {
           throw new Error('Response is not an array');
         }
 
-        console.log('📋 Claude generated', actions.length, 'actions');
+        console.log(`\n📋 CLAUDE ACTION PLAN - ${actions.length} actions generated:`);
         actions.forEach((action, index) => {
-          console.log(`Action ${index + 1}:`, JSON.stringify(action, null, 2));
+          console.log(`\n${index + 1}. ${action.tool.toUpperCase()}`);
+          console.log(`   Description: ${action.description}`);
+          if (Object.keys(action.args || {}).length > 0) {
+            console.log(`   Arguments: ${JSON.stringify(action.args, null, 6)}`);
+          }
         });
-        
+        console.log('');
+
         return actions.map(action => ({
           tool: action.tool,
           args: action.args || {},
           description: action.description || `Execute ${action.tool}`
         }));
       } catch (parseError) {
-        console.error('Failed to parse Claude response as JSON:', responseText);
+        console.error('\n❌ CLAUDE RESPONSE PARSING FAILED:');
+        console.error('Raw response:', responseText);
+        console.error('Parse error:', parseError.message);
         throw new Error(`Failed to parse action sequence: ${parseError.message}`);
       }
     } catch (error) {

@@ -96,36 +96,61 @@ class ComputerControlApp {
   }
 
   async processCommand(userIntent) {
-    console.log(`\n🎯 Processing: "${userIntent}"`);
+    const sessionId = Date.now().toString(36);
+    console.log(`\n${'#'.repeat(80)}`);
+    console.log(`🚀 COMMAND SESSION ${sessionId} STARTED`);
+    console.log(`🎯 User Intent: "${userIntent}"`);
+    console.log(`⏱️  Start Time: ${new Date().toISOString()}`);
+    console.log(`${'#'.repeat(80)}`);
+
+    const startTime = Date.now();
 
     try {
-      console.log('📸 Taking screenshot...');
+      console.log('\n📸 STEP 1: Taking screenshot...');
+      const screenshotStart = Date.now();
       const screenshot = await this.mcpClient.takeScreenshot();
+      console.log(`✅ Screenshot captured in ${Date.now() - screenshotStart}ms`);
 
-      console.log('🤖 Asking Claude for action plan...');
+      console.log('\n🤖 STEP 2: Asking Claude for action plan...');
+      const claudeStart = Date.now();
       const actions = await this.claudeProvider.processUserIntent(screenshot, userIntent);
+      console.log(`✅ Claude responded in ${Date.now() - claudeStart}ms`);
 
       if (!actions || actions.length === 0) {
-        console.log('🤷 No actions needed for this request');
+        console.log('\n🤷 No actions needed for this request');
+        console.log(`\n${'#'.repeat(80)}`);
+        console.log(`🏁 SESSION ${sessionId} COMPLETED - No actions required`);
+        console.log(`${'#'.repeat(80)}\n`);
         return;
       }
 
-      console.log('📋 Setting up action queue...');
+      console.log('\n📋 STEP 3: Setting up action queue...');
       await this.actionQueue.addActions(actions);
 
-      console.log('🎬 Starting action execution...');
+      console.log('\n🎬 STEP 4: Starting action execution...');
+      const executionStart = Date.now();
       const success = await this.actionQueue.executeQueue();
+      const executionTime = Date.now() - executionStart;
 
+      const totalTime = Date.now() - startTime;
+
+      console.log(`\n${'#'.repeat(80)}`);
       if (success) {
-        console.log('🎉 Command completed successfully!');
+        console.log(`🎉 SESSION ${sessionId} COMPLETED SUCCESSFULLY!`);
       } else {
-        console.log('⚠️  Command was interrupted or failed');
+        console.log(`⚠️  SESSION ${sessionId} COMPLETED WITH ERRORS`);
       }
+      console.log(`⏱️  Total Time: ${totalTime}ms (Execution: ${executionTime}ms)`);
+      console.log(`📊 Actions: ${actions.length} planned, execution ${success ? 'successful' : 'had errors'}`);
+      console.log(`${'#'.repeat(80)}\n`);
     } catch (error) {
-      console.error('❌ Failed to process command:', error.message);
+      const totalTime = Date.now() - startTime;
+      console.error(`\n${'#'.repeat(80)}`);
+      console.error(`❌ SESSION ${sessionId} FAILED`);
+      console.error(`🚫 Error: ${error.message}`);
+      console.error(`⏱️  Time: ${totalTime}ms`);
+      console.error(`${'#'.repeat(80)}\n`);
     }
-
-    console.log('');
   }
 
   setupSignalHandlers() {
