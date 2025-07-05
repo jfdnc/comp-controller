@@ -3,21 +3,32 @@ import { KeyboardShortcutService } from "../services/keyboard-shortcuts.js";
 
 const shortcutService = new KeyboardShortcutService();
 
-export function getAvailableActions() {
+/**
+ * Get all available semantic keyboard shortcuts for the current platform
+ * @returns {string[]} Array of available semantic shortcut names
+ */
+export function getAvailableShortcuts() {
   return shortcutService.getAvailableActions();
 }
 
-export const getAvailableActionsTool = {
-  name: "getAvailableActions",
-  description: "Get a list of all available semantic keyboard actions",
+/**
+ * MCP tool definition for getting available semantic keyboard shortcuts
+ */
+export const getAvailableShortcutsTool = {
+  name: "getAvailableShortcuts",
+  description: "Get a list of all available semantic keyboard shortcuts",
   schema: {},
+  /**
+   * MCP handler for getting available shortcuts
+   * @returns {Promise<Object>} MCP response object with available shortcuts
+   */
   handler: async () => {
-    const actions = getAvailableActions();
+    const shortcuts = getAvailableShortcuts();
     return {
       content: [
         {
           type: "text",
-          text: `Available actions: ${actions.join(', ')}`,
+          text: `Available shortcuts: ${shortcuts.join(', ')}`,
         },
       ],
     };

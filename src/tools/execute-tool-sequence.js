@@ -1,7 +1,15 @@
 import { z } from "zod";
 import { TOOL_FUNCTIONS } from "./index.js";
 
-export async function executeSequence(actions) {
+/**
+ * Execute a sequence of tool actions with guaranteed ordering and proper awaiting
+ * @param {Array<Object>} actions - Array of action objects with tool and args properties
+ * @param {string} actions[].tool - The name of the tool to execute
+ * @param {Object} actions[].args - Arguments to pass to the tool
+ * @returns {Promise<string[]>} Array of result messages from each executed action
+ * @throws {Error} If any tool in the sequence is unknown
+ */
+export async function executeToolSequence(actions) {
   const results = [];
   
   for (const action of actions) {
@@ -39,18 +47,27 @@ export async function executeSequence(actions) {
   return results;
 }
 
-export const executeSequenceTool = {
-  name: "executeSequence",
-  description: "Execute a sequence of actions with guaranteed ordering and proper awaiting",
+/**
+ * MCP tool definition for executing sequences of tool actions
+ */
+export const executeToolSequenceTool = {
+  name: "executeToolSequence",
+  description: "Execute a sequence of tool actions with guaranteed ordering and proper awaiting",
   schema: {
     actions: z.array(z.object({
       tool: z.string().describe("The tool name to execute"),
       args: z.record(z.any()).describe("Arguments for the tool")
     })).describe("Array of actions to execute in sequence")
   },
+  /**
+   * MCP handler for executing tool sequences
+   * @param {Object} params - Handler parameters
+   * @param {Array<Object>} params.actions - Array of tool actions to execute
+   * @returns {Promise<Object>} MCP response object
+   */
   handler: async ({ actions }) => {
     try {
-      const results = await executeSequence(actions);
+      const results = await executeToolSequence(actions);
       return {
         content: [
           {

@@ -25,8 +25,8 @@ Note: This project performs actual computer control, so automated testing is avo
 
 ### MCP Server Structure
 - **Entry Point**: `src/mcp-server.js` - Minimal server that registers all tools via the tool registry
-- **Tool Registry**: `src/tools/index.js` - Central registry mapping tool names to both MCP tool definitions and business logic functions
-- **Tool Pattern**: Each tool in `src/tools/` exports both a business logic function and an MCP tool definition
+- **Tool Registry**: `src/tools/index.js` - Central registry mapping tool names to both MCP tool definitions and tool logic functions
+- **Tool Pattern**: Each tool in `src/tools/` exports both a tool logic function and an MCP tool definition
 
 ### Tool Categories
 
@@ -58,8 +58,8 @@ Note: This project performs actual computer control, so automated testing is avo
 - Makes it available for sequence execution
 - Includes it in tool discovery
 
-**Business Logic Separation**: Each tool exports:
-- A pure business function (e.g., `typeText(text)`)
+**Tool Logic Separation**: Each tool exports:
+- A pure tool function (e.g., `typeText(text)`)
 - An MCP tool definition with schema validation and error handling
 - This enables composition and reuse between tools
 

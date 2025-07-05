@@ -1,37 +1,51 @@
 import { z } from "zod";
 import { KeyboardShortcutService } from "../services/keyboard-shortcuts.js";
-import { getAvailableActions } from "./get-available-actions.js";
+import { getAvailableShortcuts } from "./get-available-shortcuts.js";
 
 const shortcutService = new KeyboardShortcutService();
 
-export async function executeAction(action) {
-  await shortcutService.executeShortcut(action);
+/**
+ * Execute a semantic keyboard shortcut
+ * @param {string} shortcut - The semantic name of the shortcut to execute
+ * @returns {Promise<void>}
+ */
+export async function executeShortcut(shortcut) {
+  await shortcutService.executeShortcut(shortcut);
 }
 
-export const executeActionTool = {
-  name: "executeAction",
-  description: "Execute a semantic keyboard action",
+/**
+ * MCP tool definition for executing semantic keyboard shortcuts
+ */
+export const executeShortcutTool = {
+  name: "executeShortcut",
+  description: "Execute a semantic keyboard shortcut",
   schema: {
-    action: z.string().describe("Semantic action to execute (e.g. 'open spotlight', 'copy', 'new tab', 'save', 'find')"),
+    shortcut: z.string().describe("Semantic shortcut to execute (e.g. 'open spotlight', 'copy', 'new tab', 'save', 'find')"),
   },
-  handler: async ({ action }) => {
+  /**
+   * MCP handler for executing semantic keyboard shortcuts
+   * @param {Object} params - Handler parameters
+   * @param {string} params.shortcut - The semantic shortcut to execute
+   * @returns {Promise<Object>} MCP response object
+   */
+  handler: async ({ shortcut }) => {
     try {
-      await executeAction(action);
+      await executeShortcut(shortcut);
       return {
         content: [
           {
             type: "text",
-            text: `Executed action: ${action}`,
+            text: `Executed shortcut: ${shortcut}`,
           },
         ],
       };
     } catch (error) {
-      const availableActions = getAvailableActions();
+      const availableShortcuts = getAvailableShortcuts();
       return {
         content: [
           {
             type: "text",
-            text: `Error: ${error.message}. Available actions: ${availableActions.join(', ')}`,
+            text: `Error: ${error.message}. Available shortcuts: ${availableShortcuts.join(', ')}`,
           },
         ],
       };

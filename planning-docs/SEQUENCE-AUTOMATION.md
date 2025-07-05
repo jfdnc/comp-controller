@@ -57,7 +57,7 @@ export async function executeSequence(actions) {
 **Cons:** Still requires manual registration, assumes single-argument functions
 
 ### Option 2: Standardized Function Signatures
-**Make all business logic functions accept a single args object**
+**Make all tool logic functions accept a single args object**
 
 ```javascript
 // Standardize all functions to accept args object
@@ -121,7 +121,7 @@ export async function executeSequence(actions) {
 **Cons:** Runtime overhead, harder to debug, requires strict naming conventions
 
 ### Option 4: Enhanced Tool Registry with Auto-Discovery
-**Extend existing tool registry to include business functions**
+**Extend existing tool registry to include tool functions**
 
 ```javascript
 // In tools/index.js
@@ -137,17 +137,17 @@ export const TOOL_REGISTRY = {
   focusWindow: { tool: focusWindowTool, func: focusWindow },
 };
 
-// Helper to get all business functions
-export const BUSINESS_FUNCTIONS = Object.fromEntries(
+// Helper to get all tool functions
+export const TOOL_FUNCTIONS = Object.fromEntries(
   Object.entries(TOOL_REGISTRY).map(([name, {func}]) => [name, func])
 );
 
 // In execute-sequence.js
-import { BUSINESS_FUNCTIONS } from './index.js';
+import { TOOL_FUNCTIONS } from './index.js';
 
 export async function executeSequence(actions) {
   for (const action of actions) {
-    const func = BUSINESS_FUNCTIONS[action.tool];
+    const func = TOOL_FUNCTIONS[action.tool];
     if (!func) throw new Error(`Unknown tool: ${action.tool}`);
     
     await func(action.args);
@@ -200,7 +200,7 @@ export async function executeSequence(actions) {
 
 ### Implementation:
 1. Update `tools/index.js` with enhanced registry
-2. Export `BUSINESS_FUNCTIONS` object
+2. Export `TOOL_FUNCTIONS` object
 3. Update `executeSequence` to use the registry
 4. Optional: Add validation that all tools in registry have corresponding functions
 
