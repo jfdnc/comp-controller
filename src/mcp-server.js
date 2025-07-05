@@ -173,6 +173,83 @@ server.tool(
 );
 
 server.tool(
+  "executeSequence",
+  "Execute a sequence of actions with guaranteed ordering and proper awaiting",
+  {
+    actions: z.array(z.object({
+      tool: z.string().describe("The tool name to execute"),
+      args: z.record(z.any()).describe("Arguments for the tool")
+    })).describe("Array of actions to execute in sequence")
+  },
+  async ({ actions }) => {
+    const results = [];
+    
+    try {
+      for (const action of actions) {
+        let result;
+        
+        switch (action.tool) {
+          case "typeText":
+            await keyboard.type(action.args.text);
+            result = `Typed: ${action.args.text}`;
+            break;
+            
+          case "pressKey":
+            if (action.args.key === "enter") {
+              await keyboard.pressKey(Key.Enter);
+            } else if (action.args.key === "tab") {
+              await keyboard.pressKey(Key.Tab);
+            } else if (action.args.key === "escape") {
+              await keyboard.pressKey(Key.Escape);
+            } else {
+              await keyboard.pressKey(Key[action.args.key] || action.args.key);
+            }
+            result = `Pressed key: ${action.args.key}`;
+            break;
+            
+          case "executeAction":
+            await shortcutService.executeShortcut(action.args.action);
+            result = `Executed action: ${action.args.action}`;
+            break;
+            
+          case "openApplication":
+            if (process.platform === 'darwin') {
+              await execAsync(`open -a "${action.args.appName}"`);
+              result = `Launched application: ${action.args.appName}`;
+            } else {
+              result = `Application launching not implemented for platform: ${process.platform}`;
+            }
+            break;
+            
+          default:
+            result = `Unknown tool: ${action.tool}`;
+        }
+        
+        results.push(`${action.tool}: ${result}`);
+      }
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Executed ${actions.length} actions:\n${results.join('\n')}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error in sequence at step ${results.length + 1}: ${error.message}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
   "openApplication",
   "Launch an application by name",
   {
@@ -207,6 +284,64 @@ server.tool(
           {
             type: "text",
             text: `Error launching application "${appName}": ${error.message}`,
+          },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
+  "focusWindow",
+  "Focus a window by title or partial title match",
+  {
+    windowTitle: z.string().describe("The window title or partial title to focus (e.g. 'Chrome', 'TextEdit', 'Untitled')"),
+  },
+  async ({ windowTitle }) => {
+    try {
+      const windows = await getWindows();
+      
+      // Find window by exact or partial title match
+      let targetWindow = null;
+      for (const window of windows) {
+        const title = await window.getTitle();
+        if (title === windowTitle || title.includes(windowTitle)) {
+          targetWindow = window;
+          break;
+        }
+      }
+      
+      if (!targetWindow) {
+        const windowTitles = await Promise.all(
+          windows.map(async (window) => await window.getTitle())
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Window not found: "${windowTitle}". Available windows: ${windowTitles.filter(t => t.length > 0).join(', ')}`,
+            },
+          ],
+        };
+      }
+      
+      await targetWindow.focus();
+      const focusedTitle = await targetWindow.getTitle();
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Focused window: "${focusedTitle}"`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error focusing window: ${error.message}`,
           },
         ],
       };
