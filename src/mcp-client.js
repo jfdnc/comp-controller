@@ -1,133 +1,68 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
-export class MCPClient {
+class MCPClient {
   constructor() {
-    this.client = null;
+    this.mcp = new Client({
+      name: "computer-control-client",
+      version: "1.0.0"
+    }, {
+      capabilities: {}
+    });
     this.transport = null;
-    this.connected = false;
+    this.tools = [];
   }
 
-  async connect() {
+  async connectToServer(serverScriptPath) {
     try {
       this.transport = new StdioClientTransport({
-        command: 'node',
-        args: ['src/mcp-server.js'],
-        cwd: process.cwd()
+        command: process.execPath,
+        args: [serverScriptPath],
       });
+      
+      await this.mcp.connect(this.transport);
 
-      this.client = new Client({
-        name: "computer-control-client",
-        version: "1.0.0"
-      }, {
-        capabilities: {}
+      const toolsResult = await this.mcp.listTools();
+      this.tools = toolsResult.tools.map((tool) => {
+        return {
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.inputSchema,
+        };
       });
-
-      await this.client.connect(this.transport);
-      this.connected = true;
-
-      //console.log('✅ Connected to MCP server');
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to connect to MCP server:', error);
-      return false;
+      
+      console.log(
+        "Connected to server with tools:",
+        this.tools.map(({ name }) => name)
+      );
+    } catch (e) {
+      console.log("Failed to connect to MCP server: ", e);
+      throw e;
     }
   }
 
-  async disconnect() {
+  async callTool(toolName, toolArgs = {}) {
     try {
-      if (this.client && this.connected) {
-        await this.client.close();
-      }
-
-      this.connected = false;
-      //console.log('MCP client disconnected');
-    } catch (error) {
-      console.error('Error disconnecting MCP client:', error);
-    }
-  }
-
-  async listTools() {
-    if (!this.connected || !this.client) {
-      throw new Error('MCP client not connected');
-    }
-
-    try {
-      const response = await this.client.listTools();
-      return response.tools;
-    } catch (error) {
-      console.error('Error listing tools:', error);
-      throw error;
-    }
-  }
-
-  async callTool(name, args = {}) {
-    if (!this.connected || !this.client) {
-      throw new Error('MCP client not connected');
-    }
-
-    try {
-      const response = await this.client.callTool({
-        name,
-        arguments: args
+      const result = await this.mcp.callTool({
+        name: toolName,
+        arguments: toolArgs,
       });
-
-      return response;
-    } catch (error) {
-      console.error(`Error calling tool ${name}:`, error);
-      throw error;
+      return result;
+    } catch (e) {
+      console.log(`Failed to call tool ${toolName}:`, e);
+      throw e;
     }
   }
 
-  async takeScreenshot() {
-    const result = await this.callTool('takeScreenshot');
-
-    if (result.isError) {
-      throw new Error(result.content[0]?.text || 'Failed to take screenshot');
+  async cleanup() {
+    if (this.mcp) {
+      await this.mcp.close();
     }
-
-    const imageContent = result.content.find(item => item.type === 'image');
-    if (!imageContent) {
-      throw new Error('No image data in screenshot response');
-    }
-
-    return imageContent.data;
   }
 
-  async clickAt(x, y) {
-    return await this.callTool('clickAt', { x, y });
-  }
-
-  async typeText(text) {
-    return await this.callTool('typeText', { text });
-  }
-
-  async pressKey(key) {
-    return await this.callTool('pressKey', { key });
-  }
-
-  async getWindowList() {
-    return await this.callTool('getWindowList');
-  }
-
-  async openApplication(appName) {
-    return await this.callTool('openApplication', { appName });
-  }
-
-
-
-  isConnected() {
-    return this.connected;
-  }
-
-  async healthCheck() {
-    try {
-      const tools = await this.listTools();
-      return tools && tools.length > 0;
-    } catch (error) {
-      return false;
-    }
+  getTools() {
+    return this.tools;
   }
 }
 
-export default MCPClient;
+export { MCPClient };

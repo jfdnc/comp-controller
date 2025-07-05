@@ -8,8 +8,7 @@ computer-control/
 │   ├── mcp-server.js        # MCP server wrapping nut.js
 │   ├── mcp-client.js        # MCP client + Claude integration
 │   ├── claude-provider.js   # Anthropic API integration
-│   ├── action-queue.js      # Debug stepping queue system
-│   └── audio-stub.js        # Future speech integration placeholder
+│   └── action-queue.js      # Debug stepping queue system
 └── README.md
 
 ## Dependencies (package.json)
@@ -18,7 +17,7 @@ computer-control/
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@nut-tree/nut-js": "^4.x",
+    "@nut-tree-fork/nut-js": "^4.x",
     "@modelcontextprotocol/sdk": "latest"
   }
 }
@@ -27,16 +26,14 @@ computer-control/
 
 ### MCP Server (mcp-server.js)
 Expose these tools via MCP protocol:
-- takeScreenshot() - Returns base64 screenshot
-- clickAt(x, y) - Click coordinates
 - typeText(text) - Type string
-- pressKey(key) - Press key (enter, tab, etc)
+- pressKey(key) - Press key (enter, tab, cmd+t, etc)
 - getWindowList() - List open windows
 - openApplication(appName) - Launch app by name
-- getMousePosition() - Current cursor location
 
 ### Claude Integration (claude-provider.js)
-- Use Anthropic API with Claude Sonnet 4
+- Use Anthropic API with claude-opus-4-0 model
+- Take screenshot before sending query to Claude
 - Send screenshot + user intent as prompt
 - Parse tool calls from response
 - Return structured action list
@@ -51,6 +48,7 @@ Expose these tools via MCP protocol:
 ### Main Process (main.js)
 - Start MCP server on stdio
 - Terminal readline interface for user input
+- Take screenshot when user submits intent
 - Coordinate screenshot → Claude → action queue → execution
 - Handle Ctrl+C gracefully
 
@@ -65,19 +63,13 @@ Expose these tools via MCP protocol:
 
 ## Technical Requirements
 - Use MCP SDK stdio transport
-- nut.js for all system control
+- @nut-tree-fork/nut-js for all system control (keyboard only)
 - Node.js fetch for Anthropic API
+- claude-opus-4-0 model specifically
 - Terminal-only interface (no GUI)
 - Environment variable ANTHROPIC_API_KEY required
 - macOS accessibility permissions handling
-
-## Audio Stub (audio-stub.js)
-Create placeholder class:
-class AudioManager {
-  async startListening() { /* TODO */ }
-  async stopListening() { /* TODO */ }
-  onSpeechResult(callback) { /* TODO */ }
-}
+- Screenshot taken by main process, not exposed via MCP
 
 ## Error Handling
 - Graceful MCP connection failures
@@ -92,11 +84,11 @@ Taking screenshot...
 Asking Claude for actions...
 Action queue (2 actions):
 1. openApplication('chrome')
-2. wait(2000)
+2. pressKey('cmd+t')
 
 Execute action 1/2: openApplication('chrome')? (y/n/abort): y
 ✓ Action completed
-Execute action 2/2: wait(2000)? (y/n/abort): y
+Execute action 2/2: pressKey('cmd+t')? (y/n/abort): y
 ✓ Action completed
 All actions complete.
 
