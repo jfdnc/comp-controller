@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { getWindows } from "@nut-tree-fork/nut-js";
 
 /**
@@ -15,8 +14,8 @@ export async function getWindowList() {
       return `${index + 1}. "${title}" (${region.width}x${region.height} at ${region.left},${region.top})`;
     })
   );
-  
-  return windowList.length > 0 
+
+  return windowList.length > 0
     ? `Open windows:\n${windowList.join('\n')}`
     : "No windows found";
 }

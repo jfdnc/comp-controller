@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { KeyboardShortcutService } from "../services/keyboard-shortcuts.js";
 
 const shortcutService = new KeyboardShortcutService();
