@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { keyboard, Key } from "@nut-tree-fork/nut-js";
 
 const server = new McpServer({
   name: "computer-control",
@@ -17,14 +18,26 @@ server.tool(
     text: z.string().describe("The text to type"),
   },
   async ({ text }) => {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Would type: ${text}`,
-        },
-      ],
-    };
+    try {
+      await keyboard.type(text);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Typed: ${text}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error typing text: ${error.message}`,
+          },
+        ],
+      };
+    }
   },
 );
 
@@ -35,14 +48,34 @@ server.tool(
     key: z.string().describe("The key to press (e.g. 'enter', 'tab', 'cmd+t')"),
   },
   async ({ key }) => {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Would press key: ${key}`,
-        },
-      ],
-    };
+    try {
+      if (key === "enter") {
+        await keyboard.pressKey(Key.Enter);
+      } else if (key === "tab") {
+        await keyboard.pressKey(Key.Tab);
+      } else if (key === "cmd+t") {
+        await keyboard.pressKey(Key.LeftCmd, Key.T);
+      } else {
+        await keyboard.pressKey(Key[key] || key);
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Pressed key: ${key}`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error pressing key: ${error.message}`,
+          },
+        ],
+      };
+    }
   },
 );
 
