@@ -114,13 +114,7 @@ export class MCPClient {
     return await this.callTool('openApplication', { appName });
   }
 
-  async getMousePosition() {
-    return await this.callTool('getMousePosition');
-  }
 
-  async wait(ms) {
-    return await this.callTool('wait', { ms });
-  }
 
   isConnected() {
     return this.connected;

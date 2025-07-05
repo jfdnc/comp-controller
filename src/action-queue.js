@@ -1,8 +1,11 @@
 import readline from 'readline';
+import { ConfigurationManager } from './config/configuration-manager.js';
+import { keyboard, Key } from "@nut-tree-fork/nut-js";
 
 export class ActionQueue {
-  constructor(mcpClient) {
+  constructor(mcpClient, config = null) {
     this.mcpClient = mcpClient;
+    this.config = config || new ConfigurationManager();
     this.queue = [];
     this.currentIndex = 0;
     this.aborted = false;
@@ -81,7 +84,7 @@ export class ActionQueue {
         const startTime = Date.now();
 
         // Execute action with timeout protection and proper cleanup
-        const timeoutMs = 30000; // 30 second timeout
+        const timeoutMs = this.config.get('actionQueue.defaultTimeoutMs');
         let timeoutId;
         let actionCompleted = false;
 
@@ -117,7 +120,7 @@ export class ActionQueue {
         successCount++;
 
         // Small delay between actions to prevent overwhelming the system
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, this.config.get('actionQueue.actionDelayMs')));
 
       } catch (error) {
         console.error(`❌ [${i + 1}/${this.queue.length}] FAILED: ${action.tool}`);
@@ -228,6 +231,11 @@ export class ActionQueue {
   }
 
   async executeAction(action) {
+    // Special handling for typeText to bypass MCP crashes
+    if (action.tool === 'typeText') {
+      return await this.executeTypeTextDirect(action);
+    }
+
     if (!this.mcpClient) {
       throw new Error('MCP client not available');
     }
@@ -281,10 +289,49 @@ export class ActionQueue {
     return result;
   }
 
+  async executeTypeTextDirect(action) {
+    try {
+      const text = action.args?.text;
+      if (!text || typeof text !== 'string') {
+        throw new Error('Invalid text input: must be a non-empty string');
+      }
+
+      console.log(`🎹 Direct typing: "${text}"`);
+      
+      // Longer delay to ensure address bar is fully focused and ready
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Configure keyboard for more reliable typing
+      const originalDelay = keyboard.config.autoDelayMs;
+      keyboard.config.autoDelayMs = 50; // Faster typing
+      
+      try {
+        // Clear any existing content first with Cmd+A then type
+        await keyboard.pressKey(Key.LeftCmd, Key.A);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Type the text
+        await keyboard.type(text);
+        
+        console.log(`✅ Successfully typed: "${text}"`);
+      } finally {
+        // Restore original keyboard delay
+        keyboard.config.autoDelayMs = originalDelay;
+      }
+      
+      return {
+        content: [{ type: "text", text: `Typed text: "${text}"` }],
+      };
+    } catch (error) {
+      console.error(`❌ Direct typing failed:`, error.message);
+      throw new Error(`Failed to type text: ${error.message}`);
+    }
+  }
+
   // Helper method to determine if an action is critical
   isCriticalAction(action) {
     // Define actions that if they fail, should stop execution
-    const criticalActions = ['openApplication', 'takeScreenshot'];
+    const criticalActions = ['openApplication', 'focusAddressBar'];
     return criticalActions.includes(action.tool);
   }
 

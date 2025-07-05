@@ -6,15 +6,23 @@ import { MCPClient } from './mcp-client.js';
 import { ClaudeProvider } from './claude-provider.js';
 import { ActionQueue } from './action-queue.js';
 import { AudioManager } from './audio-stub.js';
+import { ScreenshotService } from './services/screenshot-service.js';
+import { ConfigurationManager } from './config/configuration-manager.js';
 
 dotenv.config();
 
 class ComputerControlApp {
-  constructor() {
-    this.mcpClient = new MCPClient();
-    this.claudeProvider = new ClaudeProvider();
-    this.actionQueue = new ActionQueue(this.mcpClient);
-    this.audioManager = new AudioManager();
+  constructor(dependencies = {}) {
+    // Initialize configuration first
+    this.config = dependencies.config || new ConfigurationManager();
+    
+    // Initialize services with dependency injection
+    this.mcpClient = dependencies.mcpClient || new MCPClient();
+    this.claudeProvider = dependencies.claudeProvider || new ClaudeProvider(this.config);
+    this.actionQueue = dependencies.actionQueue || new ActionQueue(this.mcpClient, this.config);
+    this.audioManager = dependencies.audioManager || new AudioManager();
+    this.screenshotService = dependencies.screenshotService || new ScreenshotService();
+    
     this.running = false;
     this.rl = null;
   }
@@ -95,6 +103,10 @@ class ComputerControlApp {
     });
   }
 
+  async takeScreenshot() {
+    return await this.screenshotService.takeScreenshot();
+  }
+
   async processCommand(userIntent) {
     const sessionId = Date.now().toString(36);
     console.log(`\n${'#'.repeat(80)}`);
@@ -108,7 +120,7 @@ class ComputerControlApp {
     try {
       console.log('\n📸 STEP 1: Taking screenshot...');
       const screenshotStart = Date.now();
-      const screenshot = await this.mcpClient.takeScreenshot();
+      const screenshot = await this.takeScreenshot();
       console.log(`✅ Screenshot captured in ${Date.now() - screenshotStart}ms`);
 
       console.log('\n🤖 STEP 2: Asking Claude for action plan...');

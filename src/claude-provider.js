@@ -1,9 +1,13 @@
+import { ConfigurationManager } from './config/configuration-manager.js';
+
 export class ClaudeProvider {
-  constructor() {
-    console.log(process.env.ANTHROPIC_API_KEY)
-    this.apiKey = process.env.ANTHROPIC_API_KEY;
-    this.model = 'claude-3-7-sonnet-20250219';
-    this.baseUrl = 'https://api.anthropic.com/v1/messages';
+  constructor(config = null) {
+    this.config = config || new ConfigurationManager();
+    this.apiKey = this.config.get('anthropic.apiKey');
+    this.model = this.config.get('anthropic.model');
+    this.baseUrl = this.config.get('anthropic.baseUrl');
+    this.maxTokens = this.config.get('anthropic.maxTokens');
+    this.timeout = this.config.get('anthropic.timeout');
 
     if (!this.apiKey) {
       throw new Error('ANTHROPIC_API_KEY environment variable is required');
@@ -22,20 +26,12 @@ FIRST: Carefully analyze the screenshot to understand the current state:
 
 Your job is to determine what actions need to be taken to fulfill the user's intent. You have access to these comprehensive tools via MCP:
 
-**Screen Operations:**
-- takeScreenshot(): Take a screenshot of the entire screen
-- captureRegion(x, y, width, height): Capture a specific region
-- getScreenSize(): Get screen dimensions
-- getColorAt(x, y): Get color at specific coordinates
 
 **Mouse Operations:**
 - clickAt(x, y): Left-click at coordinates
 - rightClickAt(x, y): Right-click at coordinates
 - doubleClickAt(x, y): Double-click at coordinates
-- dragMouse(fromX, fromY, toX, toY): Drag from one point to another
 - scroll(direction, amount): Scroll in direction (up/down/left/right)
-- moveMouse(x, y): Move mouse without clicking
-- getMousePosition(): Get current mouse position
 
 **Keyboard Operations:**
 - typeText(text): Type text at cursor position
@@ -63,8 +59,6 @@ Your job is to determine what actions need to be taken to fulfill the user's int
 - getWindowList(): List all open windows
 - getActiveWindow(): Get info about active window
 - focusWindow(title): Focus window by title
-- moveWindow(title, x, y): Move window to coordinates
-- resizeWindow(title, width, height): Resize window
 
 **Clipboard Operations:**
 - setClipboard(text): Copy text to clipboard
@@ -72,14 +66,6 @@ Your job is to determine what actions need to be taken to fulfill the user's int
 
 **Application Control:**
 - openApplication(appName): Open application by name
-
-**Debug/Analysis:**
-- analyzeCoordinateSystem(): Get comprehensive coordinate system analysis
-- debugCoordinates(x, y): Test specific coordinate mapping
-
-**Debug/Analysis:**
-- analyzeCoordinateSystem(): Analyze coordinate scaling and mapping
-- debugCoordinates(x, y): Test coordinate mapping at specific point
 
 PREFERRED INTERACTION METHODS:
 1. **HOTKEYS FIRST**: Use hotkey tools whenever possible instead of coordinates
@@ -148,7 +134,7 @@ CRITICAL: For all coordinate-based actions (clickAt, rightClickAt, doubleClickAt
 
       const payload = {
         model: this.model,
-        max_tokens: 4096,
+        max_tokens: this.maxTokens,
         system: systemPrompt,
         messages: [
           {
