@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { getWindows } from "@nut-tree-fork/nut-js";
 
+/**
+ * Focuses a window by finding it via exact or partial title match
+ * @param {string} windowTitle - The window title or partial title to search for
+ * @returns {Promise<string>} The actual title of the focused window
+ * @throws {Error} When no matching window is found or focus operation fails
+ */
 export async function focusWindow(windowTitle) {
   const windows = await getWindows();
   
@@ -26,12 +32,22 @@ export async function focusWindow(windowTitle) {
   return focusedTitle;
 }
 
+/**
+ * MCP tool definition for focusing windows
+ * Enables switching focus to specific windows by title matching
+ */
 export const focusWindowTool = {
   name: "focusWindow",
   description: "Focus a window by title or partial title match",
   schema: {
     windowTitle: z.string().describe("The window title or partial title to focus (e.g. 'Chrome', 'TextEdit', 'Untitled')"),
   },
+  /**
+   * MCP handler for the focusWindow tool
+   * @param {Object} params - Tool parameters
+   * @param {string} params.windowTitle - The window title or partial title to focus
+   * @returns {Promise<Object>} MCP response object with focused window title or error with available windows
+   */
   handler: async ({ windowTitle }) => {
     try {
       const focusedTitle = await focusWindow(windowTitle);

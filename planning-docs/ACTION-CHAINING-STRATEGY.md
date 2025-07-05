@@ -1,3 +1,9 @@
+## Session Context
+
+This document was created when we needed to decide how to handle sequential actions from the LLM. The initial plan included an "action queue" system, but after studying nut.js philosophy (breaking tasks into human-like steps) and MCP design patterns, we realized that letting the LLM naturally chain tool calls or providing a sequence execution tool would be more aligned with both frameworks' approaches.
+
+---
+
 # Action Chaining Strategy for LLM-Driven Computer Control
 
 ## Current State vs. Nut.js Philosophy

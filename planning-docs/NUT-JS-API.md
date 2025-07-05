@@ -1,3 +1,9 @@
+## Session Context
+
+This comprehensive API reference was created after examining the installed nut.js node_modules to understand all available functionality. Since nut.js is a fork with potentially limited documentation updates, we documented the actual API by reading the TypeScript definitions and source code to have a reliable reference for building our computer control tools.
+
+---
+
 # Nut.js API Reference
 
 ## Main Exports

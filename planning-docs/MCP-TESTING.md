@@ -1,3 +1,9 @@
+## Session Context
+
+This testing guide was created to provide manual testing methods for our MCP server and tools. Since our tools perform actual computer control (typing, clicking, opening apps), automated tests would be disruptive during development, so we needed reliable manual testing procedures instead.
+
+---
+
 # MCP Server Testing
 
 ## Quick Test

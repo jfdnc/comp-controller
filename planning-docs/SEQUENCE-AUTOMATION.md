@@ -1,3 +1,9 @@
+## Session Context
+
+This document was created when we noticed that the executeSequence tool had a manual switch statement requiring updates every time we added a new tool. We brainstormed several approaches to eliminate this maintenance burden and chose the enhanced tool registry pattern to automatically include all tools in sequence execution.
+
+---
+
 # Streamlining executeSequence Tool Registration
 
 ## Current Problem
