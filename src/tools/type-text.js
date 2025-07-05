@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { keyboard } from "@nut-tree-fork/nut-js";
 
+export async function typeText(text) {
+  await keyboard.type(text);
+}
+
 export const typeTextTool = {
   name: "typeText",
   description: "Type a string of text",
@@ -9,7 +13,7 @@ export const typeTextTool = {
   },
   handler: async ({ text }) => {
     try {
-      await keyboard.type(text);
+      await typeText(text);
       return {
         content: [
           {

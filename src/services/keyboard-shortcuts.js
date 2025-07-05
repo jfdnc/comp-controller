@@ -37,11 +37,11 @@ export class KeyboardShortcutService {
     this.shortcuts = PLATFORM_SHORTCUTS[this.platform] || {};
   }
 
-  async executeShortcut(semanticAction) {
-    const shortcut = this.shortcuts[semanticAction.toLowerCase()];
+  async executeShortcut(semanticShortcut) {
+    const shortcut = this.shortcuts[semanticShortcut.toLowerCase()];
 
     if (!shortcut) {
-      throw new Error(`Unknown semantic action: ${semanticAction}`);
+      throw new Error(`Unknown semantic shortcut: ${semanticShortcut}`);
     }
 
     await keyboard.pressKey(...shortcut);
@@ -52,7 +52,7 @@ export class KeyboardShortcutService {
     return Object.keys(this.shortcuts);
   }
 
-  hasAction(semanticAction) {
-    return this.shortcuts.hasOwnProperty(semanticAction.toLowerCase());
+  hasShortcut(semanticShortcut) {
+    return this.shortcuts.hasOwnProperty(semanticShortcut.toLowerCase());
   }
 }

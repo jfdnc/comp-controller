@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { KeyboardShortcutService } from "../services/keyboard-shortcuts.js";
+import { getAvailableActions } from "./get-available-actions.js";
 
 const shortcutService = new KeyboardShortcutService();
+
+export async function executeAction(action) {
+  await shortcutService.executeShortcut(action);
+}
 
 export const executeActionTool = {
   name: "executeAction",
@@ -11,7 +16,7 @@ export const executeActionTool = {
   },
   handler: async ({ action }) => {
     try {
-      await shortcutService.executeShortcut(action);
+      await executeAction(action);
       return {
         content: [
           {
@@ -21,7 +26,7 @@ export const executeActionTool = {
         ],
       };
     } catch (error) {
-      const availableActions = shortcutService.getAvailableActions();
+      const availableActions = getAvailableActions();
       return {
         content: [
           {

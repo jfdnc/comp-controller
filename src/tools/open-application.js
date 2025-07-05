@@ -4,6 +4,15 @@ import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
+export async function openApplication(appName) {
+  if (process.platform === 'darwin') {
+    // On macOS, use the 'open' command
+    await execAsync(`open -a "${appName}"`);
+  } else {
+    throw new Error(`Application launching not implemented for platform: ${process.platform}`);
+  }
+}
+
 export const openApplicationTool = {
   name: "openApplication",
   description: "Launch an application by name",
@@ -12,27 +21,15 @@ export const openApplicationTool = {
   },
   handler: async ({ appName }) => {
     try {
-      if (process.platform === 'darwin') {
-        // On macOS, use the 'open' command
-        await execAsync(`open -a "${appName}"`);
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Launched application: ${appName}`,
-            },
-          ],
-        };
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Application launching not implemented for platform: ${process.platform}`,
-            },
-          ],
-        };
-      }
+      await openApplication(appName);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Launched application: ${appName}`,
+          },
+        ],
+      };
     } catch (error) {
       return {
         content: [
